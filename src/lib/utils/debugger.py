@@ -168,12 +168,12 @@ class Debugger(object):
 
         if pred_flag == 'pred':
             txt = 'Pred:{:.3f}/{:.3f}/{:.3f}'.format(scale[0], scale[1], scale[2])
-            cat_size = cv2.getTextSize(txt, font, 0.5, 2)[0]
-            cv2.rectangle(self.imgs[img_id],
-                          (bbox[0], bbox[1] + cat_size[1] + 2),
-                          (bbox[0] + cat_size[0], bbox[1] + cat_size[1] + cat_size[1] + 4), (0, 0, 0), -1)
-            cv2.putText(self.imgs[img_id], txt, (bbox[0], bbox[1] + cat_size[1] + cat_size[1]),
-                        font, 0.5, (255, 255, 255), thickness=1, lineType=cv2.LINE_AA)
+            # cat_size = cv2.getTextSize(txt, font, 0.5, 2)[0]
+            # cv2.rectangle(self.imgs[img_id],
+            #               (bbox[0], bbox[1] + cat_size[1] + 2),
+            #               (bbox[0] + cat_size[0], bbox[1] + cat_size[1] + cat_size[1] + 4), (0, 0, 0), -1)
+            # cv2.putText(self.imgs[img_id], txt, (bbox[0], bbox[1] + cat_size[1] + cat_size[1]),
+            #             font, 0.5, (255, 255, 255), thickness=1, lineType=cv2.LINE_AA)
         elif pred_flag == 'gt':
             txt = 'GT:{:.3f}/{:.3f}/{:.3f}'.format(scale[0], scale[1], scale[2])
             cat_size = cv2.getTextSize(txt, font, 0.5, 2)[0]
@@ -239,9 +239,9 @@ class Debugger(object):
             if points[temp[1], 0] <= -10000 or points[temp[1], 1] <= -10000 or points[temp[0], 0] <= -10000 or \
                     points[temp[0], 1] <= -10000:
                 continue
-            else:
-                cv2.line(self.imgs[img_id], (points[temp[0], 0], points[temp[0], 1]),
-                         (points[temp[1], 0], points[temp[1], 1]), edge_color, 2)
+            # else:
+            #     cv2.line(self.imgs[img_id], (points[temp[0], 0], points[temp[0], 1]),
+            #              (points[temp[1], 0], points[temp[1], 1]), edge_color, 2)
 
         if pred_flag == 'pred':
             edge_color = (0, 0, 255)
@@ -279,10 +279,10 @@ class Debugger(object):
                 if points[temp[1], 0] <= -10000 or points[temp[1], 1] <= -10000 or points[temp[0], 0] <= -10000 or \
                         points[temp[0], 1] <= -10000:
                     continue
-                else:
-                    cv2.line(self.imgs[img_id], (points[temp[0], 0], points[temp[0], 1]),
-                             (points[temp[1], 0], points[temp[1], 1]), edge_color, 2,
-                             lineType=cv2.LINE_AA)
+                # else:
+                #     cv2.line(self.imgs[img_id], (points[temp[0], 0], points[temp[0], 1]),
+                #              (points[temp[1], 0], points[temp[1], 1]), edge_color, 2,
+                #              lineType=cv2.LINE_AA)
 
                 for j, e in enumerate(self.top_cross):
                     temp = [e[0] - 1, e[1] - 1]
@@ -290,10 +290,10 @@ class Debugger(object):
                     if points[temp[1], 0] <= -10000 or points[temp[1], 1] <= -10000 or points[temp[0], 0] <= -10000 or \
                             points[temp[0], 1] <= -10000:
                         continue
-                    else:
-                        cv2.line(self.imgs[img_id], (points[temp[0], 0], points[temp[0], 1]),
-                                 (points[temp[1], 0], points[temp[1], 1]), edge_color, 2,
-                                 lineType=cv2.LINE_AA)
+                    # else:
+                    #     cv2.line(self.imgs[img_id], (points[temp[0], 0], points[temp[0], 1]),
+                    #              (points[temp[1], 0], points[temp[1], 1]), edge_color, 2,
+                    #              lineType=cv2.LINE_AA)
 
 
     def add_axes(self, box, cam_intrinsic, img_id='default'):

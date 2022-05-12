@@ -94,10 +94,11 @@ if __name__ == '__main__':
     # Local machine configuration
     # opt.c = 'cup'
     # opt.demo = "../images/CenterPose/cup.mp4"
-    # opt.arch = 'dlav1_34'
+    opt.demo = 'webcam'
+    opt.arch = 'dlav1_34'
     # opt.load_model = f"../models/CenterPose/cup_mug_v1_140.pth"
-    # opt.debug = 1
-    # opt.show_axes = True
+    opt.load_model = "/home/jtremblay/code/centerpose_yunzhi/exp/object_pose/objectron_bike_dlav1_34_2022-05-11-10-08/bike_best.pth"
+    opt.show_axes = True
 
     # Default setting
     opt.nms = True
@@ -136,7 +137,7 @@ if __name__ == '__main__':
     else:
         meta['camera_matrix'] = np.array(opt.cam_intrinsic).reshape(3,3)
 
-    opt.use_pnp = True
+    opt.use_pnp = False
 
     # Update default configurations
     opt = opts().parse(opt)

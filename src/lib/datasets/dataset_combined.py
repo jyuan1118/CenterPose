@@ -115,15 +115,18 @@ class ObjectPoseDataset(data.Dataset):
             self.data_dir = os.path.join(opt.data_dir, 'outf_all')
         else:
             self.data_dir = os.path.join(opt.data_dir, 'outf')
+        #john 
+        
+        self.data_dir = "/home/jtremblay/code/dope_github/scripts/nvisii_data_gen/output/dataset/"
 
         # # Debug only
         # self.data_dir = os.path.join(opt.data_dir, 'outf_all_test')
 
-        self.img_dir = os.path.join(self.data_dir, f"{opt.c}_{split}")
+        self.img_dir = os.path.join(self.data_dir, "train")
 
         # Todo: take the test split as validation
         if split == 'val' and not os.path.isdir(self.img_dir):
-            self.img_dir = os.path.join(self.data_dir, f"{opt.c}_test")
+            self.img_dir = os.path.join(self.data_dir, "test")
 
         self.max_objs = 10
         self._data_rng = np.random.RandomState(123)
@@ -954,10 +957,13 @@ class ObjectPoseDataset(data.Dataset):
         # </editor-fold>
 
         # <editor-fold desc="Step2: Work on the current frame">
-        cam_projection_matrix = anns['camera_data']['camera_projection_matrix']
+        
+        # cam_projection_matrix = anns['camera_data']['camera_projection_matrix']
+        cam_projection_matrix = np.zeros([4,4])
         for k in range(num_objs):
             ann = anns['objects'][k]
-
+            if not 'single_obj' in anns['objects'][k]['name']:
+                continue
             # Todo: Only for chair category for now
             if 'symmetric' in ann:
                 if ann['symmetric'] == 'True':
@@ -1061,10 +1067,11 @@ class ObjectPoseDataset(data.Dataset):
 
                     # Todo: Currently, normalized by y axis (up)
                     if self.opt.obj_scale:
-                        if self.opt.use_absolute_scale:
-                            scale[id_symmetry, k] = np.abs(ann['scale'])
-                        else:
-                            scale[id_symmetry, k] = np.abs(ann['scale']) / ann['scale'][1]
+                        scale[id_symmetry, k] = [1,1,1]
+                        # if self.opt.use_absolute_scale:
+                        #     scale[id_symmetry, k] = np.abs(ann['scale'])
+                        # else:
+                        #     scale[id_symmetry, k] = np.abs(ann['scale']) / ann['scale'][1]
 
                         # Todo: Currently, use 0 as the std, not used yet
                         if self.opt.obj_scale_uncertainty:
