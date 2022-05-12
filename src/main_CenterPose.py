@@ -180,7 +180,9 @@ if __name__ == '__main__':
     print('training chunk_sizes:', opt.chunk_sizes)
 
     opt.root_dir = os.path.join(os.path.dirname(__file__), '..')
-    opt.data_dir = os.path.join(opt.root_dir, 'data')
+    if not "data_dir" in opt:   
+        opt.data_dir = "/home/jtremblay/code/dope_github/scripts/nvisii_data_gen/output/cube1/"
+    # opt.data_dir = os.path.join(opt.root_dir, 'data')
     opt.exp_dir = os.path.join(opt.root_dir, 'exp', opt.task)
 
     time_str = time.strftime('%Y-%m-%d-%H-%M')

@@ -370,7 +370,7 @@ class opts(object):
 
         # JOHN
         # opt.data_dir = os.path.join(opt.root_dir, 'data')
-        opt.data_dir = "/home/jtremblay/code/dope_github/scripts/nvisii_data_gen/output/dataset/"
+        # opt.data_dir = "/home/jtremblay/code/dope_github/scripts/nvisii_data_gen/output/cube1/"
         
         opt.exp_dir = os.path.join(opt.root_dir, 'exp', opt.task)
         opt.save_dir = os.path.join(opt.exp_dir, opt.exp_id)

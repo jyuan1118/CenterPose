@@ -115,9 +115,11 @@ class ObjectPoseDataset(data.Dataset):
             self.data_dir = os.path.join(opt.data_dir, 'outf_all')
         else:
             self.data_dir = os.path.join(opt.data_dir, 'outf')
-        #john 
-        
-        self.data_dir = "/home/jtremblay/code/dope_github/scripts/nvisii_data_gen/output/dataset/"
+        #john      
+        self.data_dir = opt.data_dir
+        # print(self.data_dir)
+        # raise()   
+        # self.data_dir = "/home/jtremblay/code/dope_github/scripts/nvisii_data_gen/output/dataset/"
 
         # # Debug only
         # self.data_dir = os.path.join(opt.data_dir, 'outf_all_test')
