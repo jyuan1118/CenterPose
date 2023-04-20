@@ -32,7 +32,7 @@ import meshcat.geometry as g
 import meshcat.transformations as tf
 
 SHANGRU_DATASET = False
-
+HANDLE_DATASET = True
 image_ext = ['jpg', 'jpeg', 'png', 'webp']
 
 def soft_nms_nvidia(src_boxes, sigma=0.5, Nt=0.3, threshold=0.001, method=0):
@@ -580,6 +580,13 @@ class SimpDetector(object):
             for idx, key in enumerate(syn_obj_mapping):
                 temp[int(key)-1] = inp[int(syn_obj_mapping[key]-1)]
             return temp 
+    
+    def inv_mapping_syn2obj(self, inp):
+            syn_obj_mapping = {8:1, 5:2, 7:3, 6:4, 4:5, 1:6, 3:7, 2:8}
+            temp = inp.copy()
+            for idx, key in enumerate(syn_obj_mapping):
+                temp[int(key)-1] = inp[int(syn_obj_mapping[key]-1)]
+            return temp 
 
     def vis_keypoints(self, debugger, images, dets, output, scale=1, pre_hms=None, pre_hm_hp=None):
         # It will not affect the original dets value as we deepcopy it here
@@ -647,11 +654,62 @@ class SimpDetector(object):
                 points_2 = [(x[0], x[1]) for x in points_2]
                 points = np.hstack((points_1, points_2)).reshape(-1, 2)
                 points_filtered = points
-
                 ret = pnp_shell(self.opt, meta, bbox, points_filtered, bbox['obj_scale'], OPENCV_RETURN=self.opt.show_axes)
                 if ret is not None:
                     boxes.append(ret)
+                
+                # obj_location = bbox['location']
+                # obj_quaternion = bbox['quaternion_xyzw']
+        
+        # # debug ======
+        # # read ground truth
+        # boxes_debug = []
+        # if opt.test_dataset == 'shangru':
+        #     path_json = self.image_or_path_or_tensor.replace('.jpg', ".json").replace('rgb', 'centerpose')
+        # else:
+        #     path_json = self.image_or_path_or_tensor.replace('.png', ".json").replace('rgb', 'centerpose')
+        
+        # with open(path_json) as f:
+        #     anns = json.load(f)
 
+        # ann = anns['objects'][0]
+        # if opt.test_dataset == 'shangru':
+        #      kpts_3d = np.array(ann['keypoints_3d'][1:])
+        #      kpts_3d_mapped = kpts_3d
+        # else:
+        #     kpts_3d = np.array(ann['local_cuboid'][:8])
+        #     kpts_3d_mapped = self.mapping_syn2obj(kpts_3d)
+            
+        # x_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[4])
+        # y_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[2])
+        # z_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[1])
+        # gt_scale = np.array([x_scale, y_scale, z_scale])
+        # gt_scale = np.abs(gt_scale) / gt_scale[1]
+        
+        # results_debug = [{'score': 0.8113746047019958, 'cls': 0}]
+        
+        # for bbox in results_debug:
+            
+        #     if opt.test_dataset == 'shangru':
+        #         points_1 = np.array(ann['projected_cuboid'][1:])
+        #     else:
+        #         points_1 = np.array(ann['projected_cuboid'][:8])
+        #         points_1 = self.mapping_syn2obj(points_1)
+        #     bbox['kps'] = points_1
+        #     points_1 = [(x[0], x[1]) for x in points_1]
+            
+        #     points_2 = np.array([(-10000.0, -10000.0), (-10000.0, -10000.0), (-10000.0, -10000.0), (-10000.0, -10000.0), (-10000.0, -10000.0), (-10000.0, -10000.0), (-10000.0, -10000.0), (-10000.0, -10000.0)])
+        #     points = np.hstack((points_1, points_2)).reshape(-1, 2)
+        #     points_filtered = points
+        #     bbox['obj_scale'] = gt_scale
+   
+        #     ret = pnp_shell(self.opt, meta, bbox, points_filtered, bbox['obj_scale'], OPENCV_RETURN=self.opt.show_axes)
+        #     if ret is not None:
+        #         boxes_debug.append(ret)
+
+        #     # obj_location = bbox['location']
+        #     # obj_quaternion = bbox['quaternion_xyzw']
+        # # #===============
 
         self.save_results(debugger, results)
 
@@ -660,15 +718,20 @@ class SimpDetector(object):
             # We set the saving folder's name = demo_save folder + source folder
             target_dir_path = os.path.join(self.opt.demo_save,
                                            f'{os.path.basename(self.opt.demo)}')
+            # target_dir_path = self.opt.demo_save
         else:
             # We set the saving folder's name = demo_save folder + source name
-            target_dir_path = os.path.join(self.opt.demo_save,
-                                           f'{os.path.splitext(os.path.basename(self.opt.demo))[0]}')
-        if not os.path.exists(self.opt.demo_save):
-            os.mkdir(self.opt.demo_save)
+            # target_dir_path = os.path.join(self.opt.demo_save,
+            #                                f'{os.path.splitext(os.path.basename(self.opt.demo))[0]}')
+            target_dir_path = self.opt.demo_save
+        if not os.path.exists(target_dir_path):
+            os.mkdir(target_dir_path)
         debugger.save_all_imgs_demo(self.image_or_path_or_tensor, path=target_dir_path)
+
+
+        # iou = self.cal_3dIoU(results, results_debug)
         
-        return results
+        # return iou
 
 
     def save_results(self, debugger, results):
@@ -679,23 +742,106 @@ class SimpDetector(object):
             if bbox['score'] > self.opt.vis_thresh:
                 if self.opt.reg_bbox:
                     # draw bounding box
-                    debugger.add_coco_bbox(bbox['bbox'], 0, bbox['score'], img_id='out_img_pred')
-                    # draw projected cuboid
-                    debugger.add_coco_hp(bbox['projected_cuboid'], img_id='out_img_pred', pred_flag='pnp')
-                    # print 6d pose
-                    debugger.add_axes(bbox['kps_3d_cam'], self.opt.cam_intrinsic, img_id='out_img_pred')
+                    # debugger.add_coco_bbox(bbox['bbox'], 0, bbox['score'], img_id='out_img_pred')
 
-                    obj_location = bbox['location']
-                    obj_quaternion = bbox['quaternion_xyzw']
+                    # draw projected cuboid
+                    if 'projected_cuboid' in bbox:
+                        debugger.add_coco_hp_gt(bbox['projected_cuboid'], img_id='out_img_pred', pred_flag='pnp')
+                    
+                    # print 6d pose
+                    # debugger.add_axes(bbox['kps_3d_cam'], self.opt.cam_intrinsic, img_id='out_img_pred')
+
+                    # obj_location = bbox['location']
+                    # obj_quaternion = bbox['quaternion_xyzw']
                     obj_scale = bbox['obj_scale']
                     
 
         # # read ground truth
-        if SHANGRU_DATASET:
-            path_json = self.image_or_path_or_tensor.replace('.jpg', ".json")
-        else:
-            path_json = self.image_or_path_or_tensor.replace('.png', ".json")
+        # if opt.test_dataset == 'shangru':
+        #     path_json = self.image_or_path_or_tensor.replace('.jpg', ".json")
+        # elif opt.test_dataset == 'falling':
+        #     path_json = self.image_or_path_or_tensor.replace('.png', ".json")
+        # elif opt.test_dataset == 'handle':
+        #     path_json = self.image_or_path_or_tensor.replace('.png', ".json").replace('rgb', 'centerpose')
+        
+        # max_objs = 10
+        # with open(path_json) as f:
+        #     anns = json.load(f)
 
+        # num_objs = min(len(anns['objects']), max_objs)
+        
+        # for k in range(num_objs):
+        #     ann = anns['objects'][k]
+            
+        #     if opt.test_dataset == 'shangru':
+        #         kpts_3d = np.array(ann['keypoints_3d'][1:])
+        #         kpts_3d_mapped = kpts_3d
+        #         x_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[4])
+        #         y_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[2])
+        #         z_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[1])
+        #         kpts_2d = np.array(ann['projected_cuboid'][1:])
+
+        #     elif opt.test_dataset == 'temp':
+        #         kpts_3d = np.array(ann['local_cuboid'][:8])[[1, 0, 2, 3, 5, 4, 6, 7]]
+        #         x_scale = np.linalg.norm(kpts_3d[0] - kpts_3d[4])
+        #         y_scale = np.linalg.norm(kpts_3d[0] - kpts_3d[3])
+        #         z_scale = np.linalg.norm(kpts_3d[0] - kpts_3d[1])
+        #         kpts_2d = np.array(ann['projected_cuboid'][:8])# [[1, 0, 2, 3, 5, 4, 6, 7]]
+
+        #     elif opt.test_dataset == 'handle':
+        #         kpts_3d = np.array(ann['local_cuboid'][:8])
+        #         kpts_3d_mapped = self.mapping_syn2obj(kpts_3d)
+        #         x_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[4])
+        #         y_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[2])
+        #         z_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[1])
+
+        #     gt_scale = np.array([x_scale, y_scale, z_scale])
+        #     gt_scale = np.abs(gt_scale) / gt_scale[1]
+        #     print('gt_scale:', gt_scale)
+            
+        #     # kpts_2d_mapped = self.mapping_syn2obj(kpts_2d)
+        #     debugger.add_coco_hp_gt(kpts_2d, img_id='out_img_pred', pred_flag='gt')
+        #     debugger.add_obj_order(kpts_2d, img_id='out_img_pred', pred_flag='gt')
+            
+        #     # gt_location = ann['location']
+        #     # gt_quaternion = ann['quaternion_xyzw']
+
+
+    def cal_3dIoU(self, results, results_debug):
+
+        obj_scale = None
+        obj_quat = None
+        obj_location = None
+
+        for bbox in results:
+            if bbox['score'] > self.opt.vis_thresh:
+                if self.opt.reg_bbox:
+                    if 'location' in bbox:
+                        obj_location = bbox['location']
+                    if 'quaternion_xyzw' in bbox:
+                        obj_quat = bbox['quaternion_xyzw']
+                    if 'obj_scale' in bbox:
+                        obj_scale = bbox['obj_scale']
+
+        for bbox in results_debug:
+            if bbox['score'] > self.opt.vis_thresh:
+                if self.opt.reg_bbox:
+                    if 'location' in bbox:
+                        gt_location = bbox['location']
+                    if 'quaternion_xyzw' in bbox:
+                        gt_quaternion = bbox['quaternion_xyzw']
+
+        if obj_scale is None or obj_quat is None or obj_location is None:
+            return 0.0 
+
+        # read ground truth
+        if opt.test_dataset == 'shangru':
+            path_json = self.image_or_path_or_tensor.replace('.jpg', ".json")
+        elif opt.test_dataset == 'falling':
+            path_json = self.image_or_path_or_tensor.replace('.png', ".json")
+        elif opt.test_dataset == 'handle':
+            path_json = self.image_or_path_or_tensor.replace('.png', ".json").replace('rgb', 'centerpose')
+        
         max_objs = 10
         with open(path_json) as f:
             anns = json.load(f)
@@ -705,37 +851,41 @@ class SimpDetector(object):
         for k in range(num_objs):
             ann = anns['objects'][k]
             
-            if SHANGRU_DATASET:
+            if opt.test_dataset == 'shangru':
                 kpts_3d = np.array(ann['keypoints_3d'][1:])
                 kpts_3d_mapped = kpts_3d
-            else:
-                kpts_3d = np.array(ann['local_cuboid'][:8])
+                x_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[4])
+                y_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[2])
+                z_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[1])
+
+            elif opt.test_dataset == 'temp':
+                kpts_3d = np.array(ann['local_cuboid'][:8])[[1, 0, 2, 3, 5, 4, 6, 7]]
+                x_scale = np.linalg.norm(kpts_3d[0] - kpts_3d[4])
+                y_scale = np.linalg.norm(kpts_3d[0] - kpts_3d[3])
+                z_scale = np.linalg.norm(kpts_3d[0] - kpts_3d[1])
+
+            elif opt.test_dataset == 'handle':
+                kpts_3d = np.array(ann['local_cuboid'][:8])[[1, 0, 2, 3, 5, 4, 6, 7]]
                 kpts_3d_mapped = self.mapping_syn2obj(kpts_3d)
-            
-            x_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[4])
-            y_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[2])
-            z_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[1])
+                x_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[4])
+                y_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[2])
+                z_scale = np.linalg.norm(kpts_3d_mapped[0] - kpts_3d_mapped[1])
+
             gt_scale = np.array([x_scale, y_scale, z_scale])
             gt_scale = np.abs(gt_scale) / gt_scale[1]
-
-            kpts_2d = np.array(ann['projected_cuboid'][:8])
-
-            kpts_2d_mapped = self.mapping_syn2obj(kpts_2d)
-            debugger.add_coco_hp(kpts_2d_mapped, img_id='out_img_pred', pred_flag='pnp')
             
+            # kpts_2d = np.array(ann['projected_cuboid'][:8])#[[1, 0, 2, 3, 5, 4, 6, 7]]
+
+            # kpts_2d_mapped = self.mapping_syn2obj(kpts_2d)
+            # debugger.add_coco_hp_gt(kpts_2d_mapped, img_id='out_img_pred', pred_flag='gt')
+            # debugger.add_obj_order(kpts_2d, img_id='out_img_pred', pred_flag='gt')
             
             # gt_location = ann['location']
             # gt_quaternion = ann['quaternion_xyzw']
-
-        # self.cal_3dIoU(obj_scale, gt_scale, obj_location, obj_quaternion, gt_location, gt_quaternion)
-        
-        
-    
-
-    def cal_3dIoU(self, obj_scale, gt_scale, obj_location, obj_quat, gt_location, gt_quat):
-        
+            
         # transform to local space
         # relative dimension
+
         obj_cuboid3d = Cuboid3d(1 * np.array(obj_scale) / obj_scale[1])
         ori = R.from_quat(obj_quat).as_matrix()
         pose_pred = np.identity(4)
@@ -747,11 +897,11 @@ class SimpDetector(object):
             (np.array(point_3d_obj), np.ones((np.array(point_3d_obj).shape[0], 1)))).T
         point_3d_cam = point_3d_cam[:3, :].T  # 8 * 3
         point_3d_cam = np.insert(point_3d_cam, 0, np.mean(point_3d_cam, axis=0), axis=0)
-        print(point_3d_cam)
+        # print(point_3d_cam)
 
         # relative dimension
         gt_cuboid3d = Cuboid3d(1 * np.array(gt_scale) / gt_scale[1])
-        ori = R.from_quat(gt_quat).as_matrix()
+        ori = R.from_quat(gt_quaternion).as_matrix()
         pose_pred = np.identity(4)
         pose_pred[:3, :3] = ori
         pose_pred[:3, 3] = gt_location
@@ -761,15 +911,17 @@ class SimpDetector(object):
             (np.array(point_3d_gt), np.ones((np.array(point_3d_gt).shape[0], 1)))).T
         point_3d_cam_gt = point_3d_cam_gt[:3, :].T  # 8 * 3
         point_3d_cam_gt = np.insert(point_3d_cam_gt, 0, np.mean(point_3d_cam_gt, axis=0), axis=0)
-        print(point_3d_cam_gt)
+        # print(point_3d_cam_gt)
 
         # 3D iou
         box1 = Box(point_3d_cam)
         box2 = Box(point_3d_cam_gt)
         cal_3dIoU = IoU(box1, box2)
         out = cal_3dIoU.iou()
-        print(out)
-
+        # self.visualize_scale_meshcat(obj_scale, gt_scale, obj_location, obj_quat, gt_location, gt_quaternion)
+    
+        return out
+    
         # self.visualize_pointcloud_meshcat(point_3d_cam, point_3d_cam_gt)
         # self.visualize_scale_meshcat(obj_scale, gt_scale, obj_location, obj_quat, gt_location, gt_quat)
     
@@ -816,17 +968,21 @@ class SimpDetector(object):
         for i in range(len(object_scale)):
             new_obj[i] = object_scale[i]
 
-        print('predicted', new_obj)
-        vis['obj'].set_object(g.Box(new_obj),g.MeshBasicMaterial(color=[0,1.0,1.0], transparency=False, opacity=1)) #[1.09030998, 1.00013745, 0.67467052]
-        vis['obj'].set_transform(tf.translation_matrix(obj_location)) #[-0.02249266131597753, -0.34124135508847536, 7.879638094486412]
-        vis['obj'].set_transform(tf.quaternion_matrix(obj_quat)) #[-0.33831656, 0.38733576, -0.84074639, 0.16928799]
+        print('obj_scale', new_obj)
+        print('obj_location', obj_location)
+        print('obj_quat', obj_quat)
+        vis['obj'].set_object(g.Box(new_obj),g.MeshBasicMaterial(color=[0,1.0,1.0], transparency=False, opacity=1)) 
+        vis['obj'].set_transform(tf.translation_matrix(obj_location)) 
+        vis['obj'].set_transform(tf.quaternion_matrix(obj_quat)) 
 
         vis["/Background"].set_property("top_color", [1, 0, 0])
 
-        print('ground truth', gt_scale)
-        vis['gt'].set_object(g.Box(gt_scale)) # [1.17995785, 1., 0.65468566]
-        vis['gt'].set_transform(tf.translation_matrix(gt_location)) # [-9.834e-07, 1.728e-06, -12.770]
-        vis['gt'].set_transform(tf.quaternion_matrix(gt_quat)) # [0.171, 0.832, 0.386, 0.360]
+        print('gt_scale', gt_scale)
+        print('gt_location', gt_location)
+        print('gt_quat', gt_quat)
+        vis['gt'].set_object(g.Box(gt_scale)) 
+        vis['gt'].set_transform(tf.translation_matrix(gt_location)) 
+        vis['gt'].set_transform(tf.quaternion_matrix(gt_quat)) 
         
                 
 
@@ -834,13 +990,16 @@ class SimpDetector(object):
 if __name__ == '__main__':
     opt = opts().parser.parse_args()
     # opt.demo = '/home/jianhey/CenterPose/custom_data/RealData/KV119/'
-    opt.demo = '/home/jianhey/CenterPose/custom_data/test/000003.png'
+    opt.demo = '/home/jianhey/CenterPose/custom_data/RealData/KV137'
+    # opt.demo = '/home/jianhey/CenterPose/custom_data/handle_utensils/train/000011/rgb/000015.png'
     opt.demo_save = '../demo'
     opt.arch = 'dlav1_34'
     # opt.load_model = '/home/jianhey/CenterPose/exp/object_pose/objectron_retail_dlav1_34_2023-02-20-23-01/retail_best.pth'
-    opt.load_model = '/home/jianhey/CenterPose/exp/object_pose/objectron_retail_dlav1_34_2023-02-07-09-17/retail_best.pth'
-    
+    # opt.load_model = '/home/jianhey/CenterPose/exp/object_pose/objectron_retail_dlav1_34_2023-02-07-09-17/retail_140.pth'
+    opt.load_model = '/home/jianhey/CenterPose/exp/object_pose/objectron_shangru_retail_dlav1_34_2023-03-21-17-58/shangru_retail_140.pth'
+
     # Default setting
+    opt.test_dataset = 'shangru'
     opt.nms = True
     opt.obj_scale = True
     opt.use_pnp = True
@@ -848,12 +1007,18 @@ if __name__ == '__main__':
     opt = opts().init(opt)
 
     meta = {}
-    # meta['camera_matrix'] = np.array(
-    #         [[482.84283447265625, 0, 200], [0, 482.84283447265625, 200], [0, 0, 1]])
-    meta['camera_matrix'] = np.array(
+    if opt.test_dataset == 'falling':
+        meta['camera_matrix'] = np.array(
+                [[482.84283447265625, 0, 200], [0, 482.84283447265625, 200], [0, 0, 1]])
+    elif opt.test_dataset == 'shangru':
+        meta['camera_matrix'] = np.array(
                 [[1303.67529296875, 0, 960], [0, 1303.67529296875, 540], [0, 0, 1]])
+    elif opt.test_dataset == 'handle':
+        meta['camera_matrix'] = np.array(
+                [[1586.68, 0, 955.236], [0, 1587.32, 713.833], [0, 0, 1]])
+    
     opt.cam_intrinsic = meta['camera_matrix']
-
+    
     # input can be foler or image
     if os.path.isdir(opt.demo):
         image_names = []
@@ -866,7 +1031,64 @@ if __name__ == '__main__':
         image_names = [opt.demo]
 
     detector = SimpDetector(opt)
-    
-    for idx, image_name in enumerate(image_names):
-        ret = detector.process(image_name, meta_inp=meta)
 
+    # used for calculating single image / single folder
+    iou_total = 0
+    for idx, image_name in enumerate(image_names):
+        iou = detector.process(image_name, meta_inp=meta)
+        # iou_total += iou
+        # print(image_name)
+        # print(idx, iou, iou_total, iou_total/(idx+1))
+
+
+        
+    # folders = ['000001', '000002', '000003', '000004', '000005',
+    #             '000006', '000007', '000008', '000009']
+    
+    # final = {}
+    # for folder in folders:
+    #     image_names = []
+    #     if os.path.isdir(opt.demo):
+    #         folder_path = os.path.join(opt.demo, folder, 'rgb')
+    #         ls = os.listdir(folder_path)
+    #         for file_name in sorted(ls):
+    #             ext = file_name[file_name.rfind('.') + 1:].lower()
+    #             if ext in image_ext:
+    #                 image_names.append(os.path.join(folder_path, file_name))
+        
+    #     iou_total = 0
+    #     map_25 = 0
+    #     map_50 = 0
+    #     map_75 = 0
+    #     for idx, image_name in enumerate(image_names):
+    #         iou = detector.process(image_name, meta_inp=meta)
+    #         iou_total += iou
+            
+    #         if iou > .25:
+    #             map_25 += 1
+    #         if iou > .5:
+    #             map_50 += 1
+    #         if iou > .75:
+    #             map_75 += 1
+
+    #     map_25 /= idx
+    #     map_50 /= idx
+    #     map_75 /= idx
+    #     avg = (iou_total / idx)
+    #     final[folder] = [map_25, map_50, map_75, avg]
+    
+    # print(final)
+    # map25_total = 0
+    # map50_total = 0
+    # map75_total = 0
+    # average_iou = 0
+    # for folder in final:
+    #     map25_total += final[folder][0]
+    #     map50_total += final[folder][1]
+    #     map75_total += final[folder][2]
+    #     average_iou += final[folder][3]
+
+    # print('map25_total:', map25_total / len(folders))
+    # print('map50_total:', map50_total / len(folders))
+    # print('map75_total:', map75_total / len(folders))
+    # print('average_iou:', average_iou / len(folders))
